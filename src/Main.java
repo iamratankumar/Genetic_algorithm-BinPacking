@@ -5,11 +5,8 @@ import java.util.stream.Collectors;
 public class Main {
 
     public static void main(String[] args) {
-        GeneticAlgorithm ga = new GeneticAlgorithm(500,50, 50);
-        GeneticAlgorithm ga2 = new GeneticAlgorithm(50,10, new Integer[]{5, 6, 3, 7, 5, 4 });
-        ga2.printPopulation();
-        //System.out.println("=============================");
-        //ga.printPackages();
+        GeneticAlgorithm ga = new GeneticAlgorithm(1000,50, 50, 25);
+        ga.runGA(UTILS.ROULETTE_SELECTION,UTILS.ORDER1_CROSSOVER, UTILS.SINGLE_MOVE_MUTATION,0.05);
 
     }
 }

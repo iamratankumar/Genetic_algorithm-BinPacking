@@ -11,31 +11,20 @@ public class GeneticAlgorithm {
     private List<Integer> packages;
     private int optimalBins= -1;
 
-
-
     /**
-     * @param populationSize
-     * @param binCapacity
-     * @param packages
-     */
-    public GeneticAlgorithm(int populationSize, int binCapacity, Integer[] packages, int optimalBins) {
-        this.populationSize = populationSize;
-        this.binCapacity = binCapacity;
-        this.optimalBins = optimalBins;
-        initPackages(packages);
-    }
-
-    /**
+     *
      * @param populationSize
      * @param binCapacity
      * @param packageSize
+     * @param arr
+     * @param optimalBins
      */
 
-    public GeneticAlgorithm(int populationSize, int binCapacity, int packageSize, int optimalBins) {
+    public GeneticAlgorithm(int populationSize, int binCapacity, int packageSize, Integer[] arr ,int optimalBins) {
         this.populationSize = populationSize;
         this.binCapacity = binCapacity;
         this.optimalBins = optimalBins;
-        initPackages(packageSize);
+        initPackages(packageSize ,arr);
         initPop(populationSize, binCapacity, packageSize);
 
     }
@@ -50,10 +39,9 @@ public class GeneticAlgorithm {
                 return;
             }
             evaluateFitness();
-            population.sort(Comparator.comparing(Individual::getRemainingCapacity));
-            System.out.println(" ############### Generation "+generation+" ################");
-            System.out.println("##################################################");
-            System.out.println("Best fitness in generation " + generation + ": " + population.getFirst().getFitness());
+            population.sort(Comparator.comparingInt(Individual::getFitness)
+                    .thenComparingInt(Individual::getRemainingCapacity));
+            System.out.println("Best fitness in generation: " + generation + "\t Fitness: " + population.getFirst().getFitness());
 
 
            if(population.getFirst().getFitness()<=optimalBins){
@@ -98,29 +86,39 @@ public class GeneticAlgorithm {
     /**
      * @param packageSize
      */
-    private void initPackages(int packageSize) {
+    private void initPackages(int packageSize, Integer[] arr) {
         packages = new ArrayList<>();
-        int last =binCapacity-1;
-        for(int i=1;i<=binCapacity/2;i++) {
-            packages.add(i);
-            packages.add(last);
-            last--;
+
+        if(arr == null || arr.length == 0){
+            int last =binCapacity-1;
+            for(int i=1;i<=binCapacity/2;i++) {
+                packages.add(last);
+                packages.add(i);
+                last--;
+            }
+        }else{
+            packageSize = arr.length;
+            packages.addAll(Arrays.asList(arr));
         }
+
         while(packages.size()<packageSize){
             List<Integer> n = new ArrayList<>(packages);
             packages.addAll(n);
         }
 
+        if (packages.size() > packageSize) {
+            packages = packages.subList(0, packageSize);
+        }
+
         Collections.shuffle(packages, new Random());
+        System.out.print("Integer[] packages = {");
+        for (int i = 0; i < packages.size(); i++) {
+            System.out.print(packages.get(i));
+            if (i != packages.size() - 1) System.out.print(", ");
+        }
+        System.out.println("};");
     }
 
-    /**
-     * @param packages
-     */
-    private void initPackages(Integer[] packages) {
-        this.packages = Arrays.asList(packages);
-        initPop(populationSize, binCapacity, this.packages.size());
-    }
 
 
 
@@ -159,10 +157,13 @@ public class GeneticAlgorithm {
     }
 
 
+
+
     private void evaluateBestFit() {
         for (Individual individual : population) {
             List<List<Integer>> bins = new ArrayList<>();
             List<Integer> cap = new ArrayList<>();
+
             for (Integer j : individual.chromosome) {
                 int pack = packages.get(j);
 
@@ -186,14 +187,13 @@ public class GeneticAlgorithm {
                     cap.add(binCapacity - pack);
                 }
             }
-            int k=0;
 
-            for(int i: cap) k+=i;
-            individual.setRemainingCapacity(cap.stream().mapToInt(Integer::intValue).sum());
+            // Calculate total remaining capacity
+            int totalRemainingCapacity = cap.stream().mapToInt(Integer::intValue).sum();
+
+            individual.setRemainingCapacity(totalRemainingCapacity);
             individual.setBins(bins);
-            //individual.setBinsCapacity(cap);
             individual.setFitness(bins.size());
-
         }
     }
 
@@ -207,8 +207,26 @@ public class GeneticAlgorithm {
      * ************************************************************
      */
 
-    private Individual tournamentSelection() {
-        return null;
+    private Individual tournamentSelection(double k) {
+        int tournamentSize = (int) (population.size()* k);
+        List<Individual> tournament = new ArrayList<>();
+        for (int i = 0; i < tournamentSize; i++) {
+            int rand  = ThreadLocalRandom.current().nextInt(0, population.size());
+            tournament.add(population.get(rand));
+        }
+
+        Individual best = tournament.getFirst();
+        for (int i =1; i < tournamentSize; i++) {
+            Individual ind = tournament.get(i);
+            if (ind.getRemainingCapacity() < best.getRemainingCapacity()) {
+                best = ind;
+            }
+            else if (ind.getRemainingCapacity() == best.getRemainingCapacity() && ind.getFitness() < best.getFitness()) {
+                best = ind;
+            }
+        }
+
+        return best;
     }
 
 
@@ -261,11 +279,11 @@ public class GeneticAlgorithm {
 
     private void initCrossover(UTILS selectionType, UTILS crossoverType) {
         List<Individual> newPopulation = new ArrayList<>();
-        /*int elitismSize = (int) (population.size() * .00);
+        int elitismSize = (int) (population.size() * .01);
 
         for (int i = 0; i < elitismSize; i++) {
             newPopulation.add(population.get(i));
-        }*/
+        }
         newPopulation.add(population.getFirst());
 
         while (newPopulation.size()< populationSize-1){
@@ -276,8 +294,8 @@ public class GeneticAlgorithm {
                 parent1 = rouletteSelection();
                 parent2 = rouletteSelection();
             }else if(selectionType == UTILS.TOURNAMENT_SELECTION){
-                parent1 = tournamentSelection();
-                parent2 = tournamentSelection();
+                parent1 = tournamentSelection(.75);
+                parent2 = tournamentSelection(.75);
             }else throw new RuntimeException("Unsupported selection type");
 
 
@@ -299,6 +317,7 @@ public class GeneticAlgorithm {
      * @param parent2
      * @param newPopulation
      */
+    
     private void cutAndCrossFill(List<Integer> parent1, List<Integer> parent2, List<Individual> newPopulation) {
         int size = parent1.size();
 
@@ -320,6 +339,7 @@ public class GeneticAlgorithm {
      * @param parent2
      * @param newPopulation
      */
+
     private void Order1(List<Integer> parent1, List<Integer> parent2, List<Individual> newPopulation) {
         int size = parent1.size();
         int left = ThreadLocalRandom.current().nextInt(0, (size -1));

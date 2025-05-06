@@ -52,13 +52,7 @@ public class SimulatedAnnealing {
             packages = packages.subList(0, packageSize);
         }
 
-        //Collections.shuffle(packages, new Random());
-//        System.out.print("Integer[] packages = {");
-//        for (int i = 0; i < packages.size(); i++) {
-//            System.out.print(packages.get(i));
-//            if (i != packages.size() - 1) System.out.print(", ");
-//        }
-//        System.out.println("};");
+        Collections.shuffle(packages, new Random());
     }
 
     public Individual run() {
